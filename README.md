@@ -1,8 +1,8 @@
 # Data Center - Mesa 2
-Proyecto de 5 nodos con automatización y monitoreo - Complejo Educativo Residencial Altavista
+Proyecto de 6 nodos con automatización y monitoreo - Complejo Educativo Residencial Altavista
 
 ## 📃 Descripción
-Somos estudiantes de 3er año de bahillerato técnico vocacional en Infraestructura Técnologica y Servicios Informaticos (ITSI). Este proyecto implementa un mini Data Center con 5 máquinas viertuales con redundancia, automatización y monitoreo.
+Somos estudiantes de 3er año de bachillerato técnico vocacional en Infraestructura Tecnológica y Servicios Informáticos (ITSI). Este proyecto implementa un mini Data Center con 5 máquinas virtuales con redundancia, automatización y monitoreo.
 
 ## 🌐 Arquitectura de 6 Nodos
 
@@ -10,7 +10,7 @@ Somos estudiantes de 3er año de bahillerato técnico vocacional en Infraestruct
 - **Nodo Backup:** Respaldo de la Master para redundancia
 - **Nodo Pasarela:** Pasarela de red con DHCP (Haciendo filtración)
 - **Nodo Datos:** Bases de datos y servicios pesados (ej. ODOO)
-- **Nodo Telefonía:** Asterisk (extenciones 201 y 202)
+- **Nodo Telefonía:** Asterisk (extensiones 201 y 202)
 - **Nodo Respaldos:** UrBackup
 
 ## 🛠️ Stack Tecnológico
