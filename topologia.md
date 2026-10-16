@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="img/banner.png" width="100%" alt="Cabecera del documento">
-</p>
-
 ### Topología en Estrella ⭐
 
 Nuestra arquitectura utiliza una **topología en estrella**, donde un nodo central o switch virtual conecta y distribuye el tráfico entre los nodos Master, Backup, Datos, Telefonía y Respaldos. 🌐
