@@ -10,11 +10,11 @@ Nodo-datos: guarda los datos del sistema, con una base de datos.
 Nodo-voip: es la máquina de telefonía, con Asterisk. Aquí estarán las extensiones 201 y 202 para poder llamar entre ellas.
 Nodo-respaldos: es la máquina de respaldos, con UrBackup. Guarda copias de seguridad de las otras máquinas.
 
-*- Herramientas
-*- Ubuntu Server 24.04
-*- QEMU + KVM
-*- Salt
-*- Graylog
-*- Asterisk
-*- UrBackup
-*- Git
+## Herramientas
+* Ubuntu Server 24.04
+* QEMU + KVM
+* Salt
+* Graylog
+* Asterisk
+* UrBackup
+* Git
