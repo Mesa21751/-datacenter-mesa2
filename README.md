@@ -16,7 +16,7 @@ Somos estudiantes de 3er año de bachillerato técnico vocacional en Infraestruc
 ## 🛠️ Stack Tecnológico
 * OS: Ubuntu Server (24.04)
 * Automatización: SaltStack
-* Monitoreo: Zabbix
+* Monitoreo: Graylog
 * Telefonía: Asterisk
 
 ## 🧪 Pruebas de Rendimiento y Estrés
