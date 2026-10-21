@@ -6,11 +6,11 @@ Somos estudiantes de 3er año de bachillerato técnico vocacional en Infraestruc
 
 ## 🌐 Arquitectura de 5 Nodos
 
-- **Nodo Master:** Salt Master + Zabbix Server  (Control y monitoreo)
+- **Nodo Master:** Salt Master +  Graylog  (Control y monitoreo)
 - **Nodo Backup:** Respaldo de la Master para redundancia
-- **Pasarela:** Pasarela de red con DHCP (Haciendo filtración)
+- **Pasarela:** Pasarela de red con DHCP (Haciendo filtración con DNSMASQ)
 - **Nodo Datos:** Bases de datos y servicios pesados 
-- **Nodo Telefonía:** Asterisk (extensiones 201 y 202)
+- **Nodo Telefonía:** Asterisk (extensiones 201, 202 y 203)
 - **Nodo Respaldos:** UrBackup
 
 ## 🛠️ Stack Tecnológico
