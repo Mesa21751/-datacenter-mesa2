@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#=====================================================================
+#########################################################
 # centro_datos_setup.sh  -  Ubuntu Server 24.04   (v2)
 #
 # herramientas de respaldo (UrBackup) y SaltStack.
