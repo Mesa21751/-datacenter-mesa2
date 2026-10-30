@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # ==========================================
 # Script de automatización para UrBackup 
 # Para clientes o servidor
