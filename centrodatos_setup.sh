@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#########################################################
+#=====================================================================
 # centro_datos_setup.sh  -  Ubuntu Server 24.04   (v2)
 #
 # herramientas de respaldo (UrBackup) y SaltStack.
@@ -10,7 +10,7 @@
 # Que hace:
 #   - Hace respaldos de seguridad de la base de datos (dump diario
 #     de MariaDB, listo para que UrBackup lo copie).
-#   - Almacena los datos de alerta que manda Graylog.
+#   - Almacena los datos de alerta que manda Wazuh.
 #   - Guarda lo que devuelve SaltStack (returner MySQL).
 #   - Expone una API REST en PHP para guardar y consultar todo eso.
 #
@@ -52,7 +52,7 @@ DIR_DUMPS="/var/backups/mariadb"
 
 # Guarda las IPs que vengan del entorno; si hay, mandan sobre las
 # que quedaron guardadas de otra ejecucion.
-_ENV_G="${IP_GRAYLOG:-}"; _ENV_S="${IP_SALT:-}"; _ENV_U="${IP_URBACKUP:-}"
+_ENV_G="${IP_WAZUH:-}"; _ENV_S="${IP_SALT:-}"; _ENV_U="${IP_URBACKUP:-}"
 
 # ----------------------- Funciones ----------------------------------
 # Genera una clave aleatoria de 32 caracteres.
@@ -92,10 +92,10 @@ if [ -f "$ARCHIVO_CRED" ]; then
   # shellcheck disable=SC1090
   source "$ARCHIVO_CRED"
 fi
-IP_GRAYLOG="${_ENV_G:-${IP_GRAYLOG:-}}"
+IP_WAZUH="${_ENV_G:-${IP_WAZUH:-}}"
 IP_SALT="${_ENV_S:-${IP_SALT:-}}"
 IP_URBACKUP="${_ENV_U:-${IP_URBACKUP:-}}"
-for v in IP_GRAYLOG IP_SALT IP_URBACKUP; do
+for v in IP_WAZUH IP_SALT IP_URBACKUP; do
   [[ -z "${!v}" || "${!v}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] \
     || { echo "$v invalida: ${!v}"; exit 1; }
 done
@@ -113,7 +113,7 @@ validar API_KEY "$API_KEY"
 PASS_API_DB='${PASS_API_DB}'
 PASS_SALT_DB='${PASS_SALT_DB}'
 API_KEY='${API_KEY}'
-IP_GRAYLOG='${IP_GRAYLOG}'
+IP_WAZUH='${IP_WAZUH}'
 IP_SALT='${IP_SALT}'
 IP_URBACKUP='${IP_URBACKUP}'
 EOF
@@ -122,7 +122,7 @@ EOF
 # Arma la lista de quien puede entrar a la API y a MariaDB (Salt).
 # Si no diste ninguna IP, deja pasar a toda la red interna.
 ACCESO_API="127.0.0.1 ::1"
-for ip in "$IP_GRAYLOG" "$IP_SALT" "$IP_URBACKUP"; do
+for ip in "$IP_WAZUH" "$IP_SALT" "$IP_URBACKUP"; do
   if [ -n "$ip" ] && [[ " $ACCESO_API " != *" $ip "* ]]; then
     ACCESO_API+=" $ip"
   fi
@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS respaldos (
     REFERENCES equipos(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Alertas: las que manda Graylog (misma estructura del Paso 5.1 del manual)
+-- Alertas: las que manda Wazuh (misma estructura del Paso 5.1 del manual)
 CREATE TABLE IF NOT EXISTS alertas_sistema (
   id               INT AUTO_INCREMENT PRIMARY KEY,
   timestamp_evento DATETIME NOT NULL,
@@ -468,7 +468,7 @@ try {
             }
             responder(405, ['error' => 'Metodo no permitido']);
 
-        // Alertas (Graylog u otra fuente):
+        // Alertas (Wazuh u otra fuente):
         // GET las consulta con filtros, POST guarda una nueva.
         case 'alertas':
             if ($metodo === 'GET') {
@@ -486,8 +486,21 @@ try {
             }
             if ($metodo === 'POST') {
                 $d  = cuerpo();
-                // Acepta el cuerpo de Graylog ({"event": {...}}) o un JSON simple.
-                $ev = is_array($d['event'] ?? null) ? $d['event'] : $d;
+                // Acepta una alerta de Wazuh ({"rule": {...}, "agent": {...}}) o un JSON simple.
+                if (is_array($d['rule'] ?? null)) {
+                    // Wazuh usa nivel 0-15; se pasa a 1=baja, 2=media, 3=alta, 4=critica.
+                    $nv = (int)($d['rule']['level'] ?? 0);
+                    $ev = [
+                        'priority'               => $nv >= 12 ? 4 : ($nv >= 10 ? 3 : ($nv >= 7 ? 2 : 1)),
+                        'timestamp'              => $d['timestamp'] ?? null,
+                        'source'                 => $d['agent']['name'] ?? ($d['manager']['name'] ?? 'Wazuh-Server'),
+                        'event_definition_title' => $d['rule']['description'] ?? null,
+                        'message'                => '[regla ' . ($d['rule']['id'] ?? '?') . '] '
+                                                    . ($d['full_log'] ?? ($d['rule']['description'] ?? '')),
+                    ];
+                } else {
+                    $ev = $d;
+                }
                 $prio = $ev['priority'] ?? $ev['nivel'] ?? 'media';
                 $nivel = is_numeric($prio) ? (NIVELES[(int)$prio] ?? (string)$prio) : (string)$prio;
                 $tipo  = $d['event_definition_title'] ?? $ev['event_definition_title']
@@ -497,7 +510,7 @@ try {
                                VALUES (?, ?, ?, ?, ?, ?)')
                     ->execute([
                         fecha($ev['timestamp'] ?? $ev['fecha'] ?? null) ?? date('Y-m-d H:i:s'),
-                        texto($ev['source'] ?? $ev['origen'] ?? 'Graylog-Server', 100),
+                        texto($ev['source'] ?? $ev['origen'] ?? 'Wazuh-Server', 100),
                         texto($nivel, 20),
                         texto($tipo, 100) ?: 'Alerta sin titulo',
                         texto($ev['message'] ?? $ev['mensaje'] ?? '', 65000) ?: 'Sin detalle adicional',
@@ -618,7 +631,7 @@ if [ -f "$UB_CONF" ]; then
 fi
 
 # ----------------------- Guia de integracion ------------------------
-# Aqui se arma la guia con los datos para conectar Salt, Graylog y
+# Aqui se arma la guia con los datos para conectar Salt, Wazuh y
 # UrBackup. Primero se detecta la IP de este equipo en la red interna.
 IP_SRV="$(ip -4 -o addr show 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | grep "^${RED_PREFIJO}\." | head -n1 || true)"
 IP_SRV="${IP_SRV:-$(hostname -I | awk '{print $1}')}"
@@ -626,10 +639,10 @@ IP_SRV="${IP_SRV:-127.0.0.1}"
 
 # Reglas de firewall sugeridas: una por cada IP que definiste.
 # Si no definiste ninguna, solo deja un aviso.
-if [ -n "$IP_GRAYLOG$IP_SALT$IP_URBACKUP" ]; then
+if [ -n "$IP_WAZUH$IP_SALT$IP_URBACKUP" ]; then
   REGLAS_FW=""
-  if [ -n "$IP_GRAYLOG" ]; then
-    REGLAS_FW+="iptables -A INPUT -p tcp -s ${IP_GRAYLOG} --dport ${PUERTO_API} -j ACCEPT   # Graylog -> API"$'\n'
+  if [ -n "$IP_WAZUH" ]; then
+    REGLAS_FW+="iptables -A INPUT -p tcp -s ${IP_WAZUH} --dport ${PUERTO_API} -j ACCEPT   # Wazuh -> API"$'\n'
   fi
   if [ -n "$IP_SALT" ]; then
     REGLAS_FW+="iptables -A INPUT -p tcp -s ${IP_SALT} --dport 3306 -j ACCEPT   # Salt master -> MariaDB"$'\n'
@@ -638,7 +651,7 @@ if [ -n "$IP_GRAYLOG$IP_SALT$IP_URBACKUP" ]; then
     REGLAS_FW+="iptables -A INPUT -p tcp -s ${IP_URBACKUP} --dport 35621:35623 -j ACCEPT   # servidor UrBackup -> cliente"$'\n'
   fi
 else
-  REGLAS_FW="# No definiste IP_GRAYLOG / IP_SALT / IP_URBACKUP: la API y Salt aceptan toda ${RED_CIDR}.
+  REGLAS_FW="# No definiste IP_WAZUH / IP_SALT / IP_URBACKUP: la API y Salt aceptan toda ${RED_CIDR}.
 # Limita 3306 y ${PUERTO_API} a las IPs de las otras computadoras en tu firewall."
 fi
 
@@ -656,9 +669,31 @@ mysql.db: '${DB_SALT}'
 # Requiere el modulo MySQL de Python en el master (python3-mysqldb,
 # o "salt-pip install mysqlclient" si Salt es onedir). Reinicia salt-master.
 
-==== Graylog (Alerts > Notifications > HTTP Notification, URL) ====
-http://${IP_SRV}:${PUERTO_API}/alertas?key=${API_KEY}
-# Si Graylog corre en este mismo equipo: http://127.0.0.1:${PUERTO_API}/alertas?key=${API_KEY}
+==== Wazuh (en el servidor Wazuh / manager) ====
+# 1) Crear el script que manda las alertas a la API:
+#    nano /var/ossec/integrations/custom-centrodatos   (pegar esto)
+#!/usr/bin/env python3
+import sys, json, urllib.request
+alerta = json.load(open(sys.argv[1]))
+url = [a for a in sys.argv[2:] if a.startswith("http")][0]
+req = urllib.request.Request(url, data=json.dumps(alerta).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")
+urllib.request.urlopen(req, timeout=10)
+# 2) Permisos (Wazuh solo ejecuta scripts con estos permisos):
+#    chmod 750 /var/ossec/integrations/custom-centrodatos
+#    chown root:wazuh /var/ossec/integrations/custom-centrodatos
+# 3) En /var/ossec/etc/ossec.conf, dentro de <ossec_config>, agregar:
+<integration>
+  <name>custom-centrodatos</name>
+  <hook_url>http://${IP_SRV}:${PUERTO_API}/alertas?key=${API_KEY}</hook_url>
+  <level>7</level>
+  <alert_format>json</alert_format>
+</integration>
+# 4) Probar la configuracion y reiniciar:
+#    /var/ossec/bin/wazuh-analysisd -t
+#    systemctl restart wazuh-manager
+# Solo se envian alertas de nivel 7 o mas (cambia <level> si quieres otro).
+# Si Wazuh corre en este mismo equipo, usa 127.0.0.1 en vez de ${IP_SRV}.
 
 ==== UrBackup ====
 Dumps de MariaDB:  ${DIR_DUMPS}  (diario 01:30, rotacion 3 dias)
